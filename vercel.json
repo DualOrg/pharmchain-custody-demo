@@ -1,9 +1,20 @@
 {
   "version": 2,
+  "functions": {
+    "server.mjs": {
+      "includeFiles": "{index.html,client.js,styles.css,dual-pharmchain-template.json,api/**,src/**,docs/assets/**}"
+    }
+  },
   "rewrites": [
-    { "source": "/mcp", "destination": "/api/mcp" },
-    { "source": "/api/mcp", "destination": "/api/mcp" },
-    { "source": "/(.*)", "destination": "/$1" }
+    { "source": "/api/dual/status", "destination": "/api/dual/status.js" },
+    { "source": "/api/batches/current", "destination": "/api/batches/current.js" },
+    { "source": "/api/batches/evaluate", "destination": "/api/batches/evaluate.js" },
+    { "source": "/api/proof", "destination": "/api/proof.js" },
+    { "source": "/api/template", "destination": "/api/template.js" },
+    { "source": "/api/deployment", "destination": "/api/deployment.js" },
+    { "source": "/api/mcp", "destination": "/api/mcp.js" },
+    { "source": "/mcp", "destination": "/api/mcp.js" },
+    { "source": "/(.*)", "destination": "/index.html" }
   ],
   "headers": [
     {
