@@ -84,7 +84,7 @@ Mobile reviewer desk:
 - `GET /api/batches/current` returns the current serialized batch and next suggested event.
 - `POST /api/batches/evaluate` evaluates a handoff without writing.
 - `POST /api/batches/sync` evaluates and writes an approved handoff to the configured DUAL object. Requires `x-demo-operator-token` or `Authorization: Bearer`.
-- `POST /api/batches/mint` mints a PharmChain batch object from the configured DUAL template. Requires `x-demo-operator-token` or `Authorization: Bearer`.
+- `POST /api/batches/mint` mints a PharmChain batch object from the configured DUAL template. Requires `x-demo-operator-token` or `Authorization: Bearer`; refuses duplicate canonical mints unless `force=true`.
 - `GET /api/proof` returns the local or DUAL-readback proof bundle.
 - `GET /api/template` returns the DUAL template skeleton.
 - `GET /api/deployment` returns deployment metadata and safety posture.

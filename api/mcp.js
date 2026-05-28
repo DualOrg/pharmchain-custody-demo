@@ -80,7 +80,7 @@ const tools = [
   },
   {
     name: "pharmchain_mint_batch",
-    description: "Operator-gated live DUAL mint: mint a PharmChain batch object from the configured template.",
+    description: "Operator-gated live DUAL mint: mint a PharmChain batch object from the configured template. Refuses duplicate canonical minting unless force=true.",
     inputSchema: {
       type: "object",
       additionalProperties: false,
@@ -88,7 +88,8 @@ const tools = [
       properties: {
         operator_token: { type: "string" },
         batch: { type: "object" },
-        audit: { type: "object" }
+        audit: { type: "object" },
+        force: { type: "boolean" }
       }
     },
     annotations: { readOnlyHint: false }

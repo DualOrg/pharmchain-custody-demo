@@ -58,7 +58,7 @@ Acceptance requires:
 
 - UI loads at `/`.
 - `/api/dual/status` returns `publicWrites=false`; in live mode it also returns `readbackReady=true`, `writable=true`, and `operatorGateConfigured=true`.
-- `/api/batches/evaluate` approves the default pharmacy receipt.
+- `/api/batches/evaluate` approves the default next handoff.
 - `/api/batches/evaluate` blocks a cold-chain breach.
 - `/api/proof` hashes re-derive locally.
 - `/mcp` exposes public read/evaluate/proof tools and operator-gated write tools.

@@ -43,6 +43,8 @@ async function load() {
 
 function renderStatus(status) {
   const modeLabel = status.writable ? "Live DUAL gated" : status.readbackReady ? "DUAL readback" : "Local proof";
+  const canonicalObjectConfigured = Boolean(status.readbackReady && status.objectId && status.objectId !== "pharmchain-batch-local-v1");
+  const hasNextEvent = Boolean(current?.next_event?.event_type);
   $("dualStatus").textContent = modeLabel;
   $("dualStatus").className = status.publicWrites ? "status-pill blocked" : "status-pill safe";
   $("readbackStatus").textContent = status.readbackReady ? "Readback on" : "Readback off";
@@ -58,14 +60,18 @@ function renderStatus(status) {
     ["Public writes", String(status.publicWrites)],
     ["Live writes", status.writable ? "operator gated" : "disabled"]
   ].map(([label, value]) => `<code>${escapeHtml(label)}: ${escapeHtml(value || "n/a")}</code>`).join("");
-  $("syncDualBtn").disabled = !status.operatorGateConfigured;
-  $("mintDualBtn").disabled = !status.mintReady;
+  $("syncDualBtn").disabled = !status.operatorGateConfigured || !hasNextEvent;
+  $("syncDualBtn").title = hasNextEvent ? "Write the approved next handoff to DUAL." : "Batch lifecycle is complete.";
+  $("mintDualBtn").disabled = !status.mintReady || canonicalObjectConfigured;
+  $("mintDualBtn").title = canonicalObjectConfigured ? "Canonical DUAL object already exists." : "Mint the canonical PharmChain batch object.";
 }
 
 function renderBatch(batch) {
   $("stateChip").textContent = batch.current_state.replaceAll("_", " ");
   $("stateChip").className = "state-chip active";
-  $("nextEvent").textContent = `Next: ${batch.next_event.event_type.replaceAll("_", " ")}`;
+  $("nextEvent").textContent = batch.next_event?.event_type
+    ? `Next: ${batch.next_event.event_type.replaceAll("_", " ")}`
+    : "Complete";
   $("eventCount").textContent = `${batch.custody_events.length} events`;
   $("batchDetails").innerHTML = detailRows([
     ["Batch", batch.batch_id],
@@ -110,16 +116,20 @@ function detailRows(rows) {
 }
 
 function renderEventForm(event) {
+  const complete = !event?.event_type;
   $("eventType").innerHTML = ["release_to_wholesaler", "receive_at_pharmacy", "dispense"].map((value) => (
-    `<option value="${value}"${value === event.event_type ? " selected" : ""}>${value.replaceAll("_", " ")}</option>`
+    `<option value="${value}"${value === event?.event_type ? " selected" : ""}>${value.replaceAll("_", " ")}</option>`
   )).join("");
-  $("receiverId").value = event.receiver_id;
-  $("tempMin").value = event.temperature_min_celsius;
-  $("tempMax").value = event.temperature_max_celsius;
-  $("serialsVerified").checked = event.serials_verified;
-  $("transactionInfo").checked = event.transaction_information;
-  $("transactionStatement").checked = event.transaction_statement;
-  $("patientPii").checked = event.patient_pii_included;
+  $("receiverId").value = event?.receiver_id || "";
+  $("tempMin").value = event?.temperature_min_celsius ?? "";
+  $("tempMax").value = event?.temperature_max_celsius ?? "";
+  $("serialsVerified").checked = Boolean(event?.serials_verified);
+  $("transactionInfo").checked = Boolean(event?.transaction_information);
+  $("transactionStatement").checked = Boolean(event?.transaction_statement);
+  $("patientPii").checked = Boolean(event?.patient_pii_included);
+  ["eventType", "receiverId", "tempMin", "tempMax", "serialsVerified", "transactionInfo", "transactionStatement", "patientPii", "evaluateBtn", "tempBreachBtn", "resetBtn"].forEach((id) => {
+    $(id).disabled = complete;
+  });
 }
 
 function readEventForm() {
@@ -230,7 +240,7 @@ $("copyBriefBtn").addEventListener("click", async () => {
   const brief = [
     "PharmChain demonstrates a DUAL-native custody ledger for one serialized drug family.",
     `Batch ${current.batch_id} is currently ${current.current_state}.`,
-    "The public demo is read-only: no live DUAL writes, no patient PII, no public write tools.",
+    "The public demo exposes read/evaluate/proof paths; live DUAL writes require the operator token.",
     `Proof integrity hash: ${proof.hashes.integrity_hash}`
   ].join("\n");
   try {

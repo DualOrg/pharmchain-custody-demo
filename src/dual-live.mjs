@@ -145,6 +145,12 @@ export async function getProofBundleLive() {
 export async function mintBatch(input = {}) {
   requireWritable({ requireObject: false });
   const config = dualConfig();
+  if (config.objectId && input.force !== true) {
+    const error = new Error("Canonical PharmChain object is already configured; mint is disabled unless force=true.");
+    error.status = 409;
+    error.readiness = readiness();
+    throw error;
+  }
   const balance = await requirePositiveBalance(config);
   const batch = normalizeBatch(input.batch || input.properties || cloneBatch());
   const metadata = semanticMetadata("pharmchain_batch_minted", batch, input.audit || {});

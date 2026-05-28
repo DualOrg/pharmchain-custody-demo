@@ -173,35 +173,46 @@ assert(current.body.batch_id === "PHC-GLP1-2026-0004", "current batch is canonic
 assert(["Manufactured", "In_Transit", "At_Pharmacy", "Dispensed"].includes(current.body.current_state), "current state is valid");
 assert(current.body.dscsa.patient_pii_stored === false, "current batch stores no patient PII");
 
-const approved = await request("/api/batches/evaluate", {
-  method: "POST",
-  body: { batch: current.body, event: current.body.next_event }
-});
-assert(approved.response.ok, "evaluate endpoint returns 200");
-assert(approved.body.result === "Approved", "valid pharmacy receipt is approved");
-assert(approved.body.next_state === "At_Pharmacy", "valid receipt moves to At_Pharmacy");
-assert(approved.body.publicWrites === false, "evaluate never exposes public writes");
-assert(approved.body.proof.integrity_hash, "evaluate returns proof integrity hash");
+const hasNextEvent = Boolean(current.body.next_event?.event_type);
+let approved = null;
+if (hasNextEvent) {
+  approved = await request("/api/batches/evaluate", {
+    method: "POST",
+    body: { batch: current.body, event: current.body.next_event }
+  });
+  assert(approved.response.ok, "evaluate endpoint returns 200");
+  assert(approved.body.result === "Approved", "valid pharmacy receipt is approved");
+  assert(["In_Transit", "At_Pharmacy", "Dispensed"].includes(approved.body.next_state), "valid receipt moves to a valid lifecycle state");
+  assert(approved.body.next_state !== current.body.current_state, "valid receipt advances the lifecycle state");
+  assert(approved.body.publicWrites === false, "evaluate never exposes public writes");
+  assert(approved.body.proof.integrity_hash, "evaluate returns proof integrity hash");
 
-const blocked = await request("/api/batches/evaluate", {
-  method: "POST",
-  body: {
-    batch: current.body,
-    event: {
-      ...current.body.next_event,
-      temperature_max_celsius: 12.4,
-      excursions: 1
+  const blocked = await request("/api/batches/evaluate", {
+    method: "POST",
+    body: {
+      batch: current.body,
+      event: {
+        ...current.body.next_event,
+        temperature_max_celsius: 12.4,
+        excursions: 1
+      }
     }
-  }
-});
-assert(blocked.body.result === "Blocked", "temperature breach is blocked");
-assert(blocked.body.reason.includes("Cold-chain breach"), "blocked reason explains cold-chain breach");
+  });
+  assert(blocked.body.result === "Blocked", "temperature breach is blocked");
+  assert(blocked.body.reason.includes("Cold-chain breach"), "blocked reason explains cold-chain breach");
+} else {
+  assert(current.body.current_state === "Dispensed", "completed batch has no next event");
+}
 
 const proof = await request("/api/proof");
 assert(proof.response.ok, "proof endpoint returns 200");
 assert(["local_rederived", "dual_readback_rederived"].includes(proof.body.verifier_level), "proof verifier level is explicit");
 assert(proof.body.publicWrites === false, "proof reports no public writes");
-assert(proof.body.hashes.integrity_hash === approved.body.proof.integrity_hash, "proof integrity matches approved default event");
+if (approved) {
+  assert(proof.body.hashes.integrity_hash === approved.body.proof.integrity_hash, "proof integrity matches approved default event");
+} else {
+  assert(Boolean(proof.body.hashes.integrity_hash), "proof integrity hash is present for completed batch");
+}
 
 const deployment = await request("/api/deployment");
 assert(deployment.response.ok, "deployment endpoint returns 200");
@@ -227,12 +238,14 @@ assert(names.has("pharmchain_evaluate_handoff"), "MCP lists evaluate tool");
 assert(names.has("pharmchain_sync_handoff"), "MCP lists operator-gated sync tool");
 assert(names.has("pharmchain_mint_batch"), "MCP lists operator-gated mint tool");
 
-const mcpEval = await rpc("tools/call", {
-  name: "pharmchain_evaluate_handoff",
-  arguments: { event: current.body.next_event }
-});
-assert(mcpEval.structuredContent.result === "Approved", "MCP evaluate approves default handoff");
-assert(mcpEval.structuredContent.publicWrites === false, "MCP evaluation reports no public writes");
+if (hasNextEvent) {
+  const mcpEval = await rpc("tools/call", {
+    name: "pharmchain_evaluate_handoff",
+    arguments: { batch: current.body, event: current.body.next_event }
+  });
+  assert(mcpEval.structuredContent.result === "Approved", "MCP evaluate approves default handoff");
+  assert(mcpEval.structuredContent.publicWrites === false, "MCP evaluation reports no public writes");
+}
 
 const mcpWriteReject = await request("/mcp", {
   method: "POST",

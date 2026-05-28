@@ -53,7 +53,7 @@ DEMO_BASE_URL=https://pharmchain-custody-demo.vercel.app SMOKE_STRICT_NETWORK=1 
 
 - `GET /api/dual/status` returns `publicWrites=false`; live mode reports `readbackReady=true`, `writable=true`, and `operatorGateConfigured=true`.
 - `GET /api/batches/current` returns batch `PHC-GLP1-2026-0004`.
-- Valid pharmacy receipt evaluates to `Approved` and moves to `At_Pharmacy`.
+- Valid next handoff evaluates to `Approved` and advances to the next lifecycle state.
 - Temperature breach evaluates to `Blocked`.
 - `GET /api/proof` returns local hashes or DUAL-readback-derived hashes.
 - `GET /api/deployment` returns the repository, Vercel environment, CI command, and no-write safety posture.

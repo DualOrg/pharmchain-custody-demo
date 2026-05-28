@@ -33,7 +33,7 @@ Read:
 - `pharmchain_evaluate_handoff` - evaluate a proposed custody handoff without writing.
 - `pharmchain_get_proof` - proof bundle re-derived from local state or live DUAL readback.
 - `pharmchain_sync_handoff` - operator-gated live DUAL update.
-- `pharmchain_mint_batch` - operator-gated live DUAL mint.
+- `pharmchain_mint_batch` - operator-gated live DUAL mint; refuses duplicate canonical mints unless `force=true`.
 
 ## Resources
 
