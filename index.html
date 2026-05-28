@@ -1,0 +1,124 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>PharmChain Custody Desk</title>
+    <link rel="stylesheet" href="/styles.css">
+  </head>
+  <body>
+    <div class="app-shell">
+      <header class="topbar">
+        <div class="brand-block">
+          <div class="brand-mark" aria-hidden="true">
+            <svg viewBox="0 0 32 32"><path d="M7 16h18"/><path d="M16 7v18"/><rect x="5" y="5" width="22" height="22" rx="5"/></svg>
+          </div>
+          <div>
+            <h1>PharmChain Custody Desk</h1>
+            <p>DUAL custody proof for one serialized drug family.</p>
+          </div>
+        </div>
+        <div class="topbar-actions">
+          <span id="dualStatus" class="status-pill">Local proof</span>
+          <button id="copyBriefBtn" class="secondary">Copy brief</button>
+          <button id="exportProofBtn">Export proof</button>
+        </div>
+      </header>
+
+      <main class="workspace">
+        <section class="panel side-panel">
+          <div class="panel-section">
+            <div class="section-head">
+              <h2>Batch Passport</h2>
+              <span id="stateChip" class="state-chip">Loading</span>
+            </div>
+            <dl class="detail-list" id="batchDetails"></dl>
+          </div>
+          <div class="panel-section">
+            <h2>DSCSA Readiness</h2>
+            <div class="check-list" id="dscsaChecks"></div>
+          </div>
+          <div class="panel-section">
+            <h2>Actors</h2>
+            <div class="actor-list" id="actorList"></div>
+          </div>
+        </section>
+
+        <section class="center-stack">
+          <div class="panel main-panel">
+            <div class="panel-section">
+              <div class="section-head">
+                <div>
+                  <h2>Custody State Machine</h2>
+                  <p class="hint">Manufactured to dispenser release, with every handoff hashed.</p>
+                </div>
+                <span id="nextEvent" class="metric-pill">Next event</span>
+              </div>
+              <div class="state-rail" id="stateRail"></div>
+            </div>
+            <div class="panel-section">
+              <div class="section-head">
+                <h2>Event Intake</h2>
+                <span id="decisionBadge" class="status-pill">Awaiting check</span>
+              </div>
+              <div class="form-grid">
+                <label>Event type<select id="eventType"></select></label>
+                <label>Receiver ID<input id="receiverId"></label>
+                <label>Min C<input id="tempMin" type="number" step="0.1"></label>
+                <label>Max C<input id="tempMax" type="number" step="0.1"></label>
+              </div>
+              <div class="toggle-grid">
+                <label><input id="serialsVerified" type="checkbox"> Serials verified</label>
+                <label><input id="transactionInfo" type="checkbox"> Transaction info present</label>
+                <label><input id="transactionStatement" type="checkbox"> Transaction statement present</label>
+                <label><input id="patientPii" type="checkbox"> Patient PII included</label>
+              </div>
+              <div class="button-row">
+                <button id="evaluateBtn">Evaluate handoff</button>
+                <button id="tempBreachBtn" class="secondary">Simulate breach</button>
+                <button id="resetBtn" class="secondary">Reset event</button>
+              </div>
+              <div id="decisionPanel" class="decision-panel"></div>
+            </div>
+          </div>
+
+          <div class="panel">
+            <div class="panel-section">
+              <div class="section-head">
+                <h2>Custody Events</h2>
+                <span class="metric-pill" id="eventCount">0 events</span>
+              </div>
+              <div class="event-list" id="eventList"></div>
+            </div>
+          </div>
+        </section>
+
+        <section class="panel right-panel">
+          <div class="panel-section">
+            <div class="section-head">
+              <h2>Proof Rail</h2>
+              <span class="status-pill safe">No public writes</span>
+            </div>
+            <div class="proof-grid" id="proofGrid"></div>
+          </div>
+          <div class="panel-section">
+            <h2>MCP/API Surface</h2>
+            <div class="surface-list">
+              <code>GET /api/dual/status</code>
+              <code>GET /api/batches/current</code>
+              <code>POST /api/batches/evaluate</code>
+              <code>GET /api/proof</code>
+              <code>GET /api/deployment</code>
+              <code>POST /mcp</code>
+            </div>
+          </div>
+          <div class="panel-section">
+            <h2>Reviewer Scorecard</h2>
+            <div class="score-list" id="scoreList"></div>
+          </div>
+        </section>
+      </main>
+    </div>
+    <script src="/client.js" type="module"></script>
+  </body>
+</html>

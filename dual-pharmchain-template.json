@@ -1,0 +1,41 @@
+{
+  "id": "pharmchain-template-local-v1",
+  "name": "io.dual.pharmchain.batch.v1",
+  "description": "Serialized drug-family custody token for DSCSA-style manufacturer-to-dispenser proof.",
+  "org_id": "69b935b4187e903f826bbe71",
+  "object_type": "pharma_batch",
+  "states": [
+    "Manufactured",
+    "In_Transit",
+    "At_Pharmacy",
+    "Dispensed"
+  ],
+  "actions": [
+    {
+      "id": "release_to_wholesaler",
+      "allowed_from": [
+        "Manufactured"
+      ],
+      "moves_to": "In_Transit"
+    },
+    {
+      "id": "receive_at_pharmacy",
+      "allowed_from": [
+        "In_Transit"
+      ],
+      "moves_to": "At_Pharmacy"
+    },
+    {
+      "id": "dispense",
+      "allowed_from": [
+        "At_Pharmacy"
+      ],
+      "moves_to": "Dispensed"
+    }
+  ],
+  "safety": {
+    "live_dual_writes": false,
+    "patient_pii_stored": false,
+    "public_write_tools": false
+  }
+}
