@@ -222,6 +222,7 @@ h2 {
   background: var(--surface-2);
   border: 1px solid var(--line);
   border-radius: 8px;
+  min-width: 0;
   padding: 10px;
 }
 
@@ -284,6 +285,7 @@ h2 {
   color: var(--muted);
   font-size: 12px;
   margin-top: 4px;
+  overflow-wrap: anywhere;
 }
 
 .state-rail {
