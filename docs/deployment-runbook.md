@@ -4,8 +4,8 @@
 
 - Repository: `DualOrg/pharmchain-custody-demo`
 - Hosting: Vercel
-- Mode: hosted reviewer demo
-- Write posture: read/evaluate/proof only
+- Mode: hosted live DUAL reviewer demo
+- Write posture: public read/evaluate/proof plus operator-gated live DUAL mint/update
 - Production URL: `https://pharmchain-custody-demo.vercel.app`
 - Production provenance: `https://pharmchain-custody-demo.vercel.app/api/deployment`
 
@@ -30,7 +30,21 @@ npm run proof:network
 npx --yes vercel@latest deploy --prod --yes
 ```
 
-No DUAL API key, operator token, patient data, or write credential is required for this reviewer demo.
+No DUAL API key, operator token, patient data, or write credential is required for local proof mode.
+
+Live mode requires server-side secrets only:
+
+```bash
+DUAL_API_URL
+DUAL_API_KEY
+DUAL_ORG_ID
+DUAL_PHARMCHAIN_TEMPLATE_ID
+DUAL_PHARMCHAIN_BATCH_OBJECT_ID
+DUAL_WRITE_MODE=event_bus
+DEMO_OPERATOR_TOKEN
+```
+
+Never commit these values.
 
 ## Production Acceptance
 
@@ -43,13 +57,13 @@ curl -s https://pharmchain-custody-demo.vercel.app/api/deployment
 Acceptance requires:
 
 - UI loads at `/`.
-- `/api/dual/status` returns `publicWrites=false` and `liveDualWrites=false`.
+- `/api/dual/status` returns `publicWrites=false`; in live mode it also returns `readbackReady=true`, `writable=true`, and `operatorGateConfigured=true`.
 - `/api/batches/evaluate` approves the default pharmacy receipt.
 - `/api/batches/evaluate` blocks a cold-chain breach.
 - `/api/proof` hashes re-derive locally.
-- `/mcp` exposes read/evaluate/proof tools with no write-like tools.
-- `/api/deployment` reports `operatorTokenAccepted=false`.
+- `/mcp` exposes public read/evaluate/proof tools and operator-gated write tools.
+- `/api/deployment` reports the live DUAL template/object IDs without secrets.
 
 ## Boundary
 
-Do not add Vercel secrets, DUAL API keys, operator tokens, public write endpoints, patient PII, or live DUAL writes in this phase.
+Do not add public write endpoints, patient PII, exposed secrets, or ungated live DUAL writes. Live DUAL writes are allowed only through server-side credentials plus the operator token.

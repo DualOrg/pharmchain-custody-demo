@@ -9,6 +9,8 @@
     { "source": "/api/dual/status", "destination": "/api/dual/status.js" },
     { "source": "/api/batches/current", "destination": "/api/batches/current.js" },
     { "source": "/api/batches/evaluate", "destination": "/api/batches/evaluate.js" },
+    { "source": "/api/batches/mint", "destination": "/api/batches/mint.js" },
+    { "source": "/api/batches/sync", "destination": "/api/batches/sync.js" },
     { "source": "/api/proof", "destination": "/api/proof.js" },
     { "source": "/api/template", "destination": "/api/template.js" },
     { "source": "/api/deployment", "destination": "/api/deployment.js" },

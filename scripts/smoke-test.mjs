@@ -2,8 +2,9 @@ import { execFile } from "node:child_process";
 import { readFile } from "node:fs/promises";
 import { promisify } from "node:util";
 import mcp from "../api/mcp.js";
+import { getCurrentBatchLive, getProofBundleLive, readiness } from "../src/dual-live.mjs";
 import { getDeploymentInfo } from "../src/deployment.mjs";
-import { evaluateHandoff, getCurrentBatch, getProofBundle, getStatus, template } from "../src/pharmchain.mjs";
+import { evaluateHandoff, template } from "../src/pharmchain.mjs";
 
 const execFileAsync = promisify(execFile);
 const baseUrl = process.env.DEMO_BASE_URL || "http://127.0.0.1:4182";
@@ -80,10 +81,10 @@ async function directRequest(path, options = {}) {
       body: await readFile(new URL("../index.html", import.meta.url), "utf8")
     };
   }
-  if (path === "/api/dual/status" && method === "GET") return json(getStatus());
-  if (path === "/api/batches/current" && method === "GET") return json(getCurrentBatch());
+  if (path === "/api/dual/status" && method === "GET") return json(readiness());
+  if (path === "/api/batches/current" && method === "GET") return json(await getCurrentBatchLive());
   if (path === "/api/batches/evaluate" && method === "POST") return json(evaluateHandoff(options.body));
-  if (path === "/api/proof" && method === "GET") return json(getProofBundle());
+  if (path === "/api/proof" && method === "GET") return json(await getProofBundleLive());
   if (path === "/api/template" && method === "GET") return json(template);
   if (path === "/api/deployment" && method === "GET") return json(getDeploymentInfo());
   if (path === "/mcp" || path === "/api/mcp") {
@@ -161,13 +162,15 @@ const status = await request("/api/dual/status");
 assert(status.response.ok, "status endpoint returns 200");
 assert(status.body.orgId === "69b935b4187e903f826bbe71", "status reports IanTest org");
 assert(status.body.publicWrites === false, "status reports no public writes");
-assert(status.body.liveDualWrites === false, "status reports no live writes");
+assert(typeof status.body.liveDualWrites === "boolean", "status reports live write posture");
+assert(status.body.liveDualWrites === status.body.writable, "live writes match writable readiness");
 assert(!("apiKey" in status.body), "status does not expose apiKey");
+assert(status.body.operatorGateConfigured === Boolean(status.body.safety?.operatorGate === "configured"), "operator gate is explicit");
 
 const current = await request("/api/batches/current");
 assert(current.response.ok, "current batch returns 200");
 assert(current.body.batch_id === "PHC-GLP1-2026-0004", "current batch is canonical PharmChain batch");
-assert(current.body.current_state === "In_Transit", "current state is in transit");
+assert(["Manufactured", "In_Transit", "At_Pharmacy", "Dispensed"].includes(current.body.current_state), "current state is valid");
 assert(current.body.dscsa.patient_pii_stored === false, "current batch stores no patient PII");
 
 const approved = await request("/api/batches/evaluate", {
@@ -196,7 +199,7 @@ assert(blocked.body.reason.includes("Cold-chain breach"), "blocked reason explai
 
 const proof = await request("/api/proof");
 assert(proof.response.ok, "proof endpoint returns 200");
-assert(proof.body.verifier_level === "local_rederived", "proof is local rederived");
+assert(["local_rederived", "dual_readback_rederived"].includes(proof.body.verifier_level), "proof verifier level is explicit");
 assert(proof.body.publicWrites === false, "proof reports no public writes");
 assert(proof.body.hashes.integrity_hash === approved.body.proof.integrity_hash, "proof integrity matches approved default event");
 
@@ -204,8 +207,8 @@ const deployment = await request("/api/deployment");
 assert(deployment.response.ok, "deployment endpoint returns 200");
 assert(deployment.body.repository.includes("pharmchain-custody-demo"), "deployment reports target repo");
 assert(deployment.body.safety.publicWrites === false, "deployment reports no public writes");
-assert(deployment.body.safety.liveDualWrites === false, "deployment reports no live writes");
-assert(deployment.body.safety.operatorTokenAccepted === false, "deployment reports no operator token intake");
+assert(deployment.body.safety.liveDualWrites === status.body.writable, "deployment live write posture matches status");
+assert(deployment.body.safety.operatorTokenAccepted === status.body.operatorGateConfigured, "deployment reports operator token gate posture");
 
 const mcpLanding = await request("/mcp");
 assert(mcpLanding.response.ok, "MCP landing returns 200");
@@ -214,21 +217,30 @@ assert(mcpLanding.body.prompts.includes("pharmchain_reviewer_check"), "MCP landi
 
 const init = await rpc("initialize");
 assert(init.serverInfo.name === "dual-pharmchain-custody-demo", "MCP initialize returns server name");
-assert(init.safety.writeTools === "none", "MCP reports no write tools");
+assert(init.safety.writeTools === "operator_gated", "MCP reports operator-gated write tools");
 assert("prompts" in init.capabilities, "MCP initialize advertises prompts");
 
 const tools = await rpc("tools/list");
 const names = new Set((tools.tools || []).map((tool) => tool.name));
 assert(names.has("pharmchain_get_status"), "MCP lists status tool");
 assert(names.has("pharmchain_evaluate_handoff"), "MCP lists evaluate tool");
-assert(![...names].some((name) => name.includes("sync") || name.includes("mint")), "MCP exposes no write-like tools");
+assert(names.has("pharmchain_sync_handoff"), "MCP lists operator-gated sync tool");
+assert(names.has("pharmchain_mint_batch"), "MCP lists operator-gated mint tool");
 
 const mcpEval = await rpc("tools/call", {
   name: "pharmchain_evaluate_handoff",
   arguments: { event: current.body.next_event }
 });
 assert(mcpEval.structuredContent.result === "Approved", "MCP evaluate approves default handoff");
-assert(mcpEval.structuredContent.liveDualWrites === false, "MCP evaluation reports no live writes");
+assert(mcpEval.structuredContent.publicWrites === false, "MCP evaluation reports no public writes");
+
+const mcpWriteReject = await request("/mcp", {
+  method: "POST",
+  body: { jsonrpc: "2.0", id: rpcId++, method: "tools/call", params: { name: "pharmchain_sync_handoff", arguments: {} } }
+});
+assert(mcpWriteReject.response.ok, "MCP write call without token returns JSON-RPC response");
+assert(Boolean(mcpWriteReject.body.error), "MCP write call without token is rejected");
+assert(/operator token/i.test(mcpWriteReject.body.error.message), "MCP write rejection names operator token");
 
 const resources = await rpc("resources/list");
 const resourceUris = new Set((resources.resources || []).map((resource) => resource.uri));

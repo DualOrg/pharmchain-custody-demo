@@ -7,6 +7,7 @@ const stateLabels = {
 
 let current = null;
 let proof = null;
+let dualStatus = null;
 
 const $ = (id) => document.getElementById(id);
 
@@ -31,6 +32,7 @@ async function load() {
   ]);
   current = batch;
   proof = proofBundle;
+  dualStatus = status;
   renderStatus(status);
   renderBatch(batch);
   renderEventForm(batch.next_event);
@@ -40,8 +42,24 @@ async function load() {
 }
 
 function renderStatus(status) {
-  $("dualStatus").textContent = status.publicWrites ? "Public writes" : "Local proof";
+  const modeLabel = status.writable ? "Live DUAL gated" : status.readbackReady ? "DUAL readback" : "Local proof";
+  $("dualStatus").textContent = modeLabel;
   $("dualStatus").className = status.publicWrites ? "status-pill blocked" : "status-pill safe";
+  $("readbackStatus").textContent = status.readbackReady ? "Readback on" : "Readback off";
+  $("readbackStatus").className = status.readbackReady ? "status-pill safe" : "status-pill";
+  $("writeBoundary").textContent = status.writable ? "Operator-gated writes" : "No public writes";
+  $("writeBoundary").className = status.publicWrites ? "status-pill blocked" : "status-pill safe";
+  $("operatorGate").textContent = status.operatorGateConfigured ? "Configured" : "Not configured";
+  $("dualLiveList").innerHTML = [
+    ["Mode", status.mode],
+    ["Template", status.templateId],
+    ["Object", status.objectId],
+    ["Write mode", status.writeMode],
+    ["Public writes", String(status.publicWrites)],
+    ["Live writes", status.writable ? "operator gated" : "disabled"]
+  ].map(([label, value]) => `<code>${escapeHtml(label)}: ${escapeHtml(value || "n/a")}</code>`).join("");
+  $("syncDualBtn").disabled = !status.operatorGateConfigured;
+  $("mintDualBtn").disabled = !status.mintReady;
 }
 
 function renderBatch(batch) {
@@ -55,7 +73,9 @@ function renderBatch(batch) {
     ["Lot", batch.lot],
     ["Serial range", batch.serial_range],
     ["Units", batch.unit_count],
-    ["Template", batch.template_id]
+    ["Template", batch.template_id],
+    ["Source", batch.source || "local_seed"],
+    ["Object", batch.dual_object?.id || batch.object_id]
   ]);
   $("dscsaChecks").innerHTML = [
     ["Transaction information", batch.dscsa.transaction_information],
@@ -168,8 +188,8 @@ function renderScorecard() {
     ["Custody lifecycle", "Manufactured -> In_Transit -> At_Pharmacy -> Dispensed"],
     ["DSCSA gate", "Transaction info, statement, partner auth, serial check"],
     ["Proof", "Batch hash, custody root, DSCSA hash, state hash"],
-    ["MCP", "Read/evaluate/proof only, no write tools"],
-    ["Boundary", "No patient PII, no live DUAL writes, no public writes"]
+    ["MCP", "Read/evaluate/proof plus operator-gated write tools"],
+    ["Boundary", "No patient PII, no public writes, live DUAL writes require operator token"]
   ].map(([title, detail]) => `<div class="score-item"><span>${title}</span><strong>${detail}</strong></div>`).join("");
 }
 
@@ -194,6 +214,8 @@ $("tempBreachBtn").addEventListener("click", () => {
   evaluateCurrent();
 });
 $("resetBtn").addEventListener("click", () => renderEventForm(current.next_event));
+$("syncDualBtn").addEventListener("click", syncToDual);
+$("mintDualBtn").addEventListener("click", mintToDual);
 $("exportProofBtn").addEventListener("click", () => {
   const data = JSON.stringify({ batch: current, proof, event: readEventForm() }, null, 2);
   const blob = new Blob([data], { type: "application/json" });
@@ -231,3 +253,62 @@ $("copyBriefBtn").addEventListener("click", async () => {
 load().catch((error) => {
   document.body.innerHTML = `<pre>${escapeHtml(error.stack || error.message)}</pre>`;
 });
+
+async function syncToDual() {
+  const token = $("operatorToken").value.trim();
+  if (!token) {
+    renderLiveWriteResult("Operator token required.", false);
+    return;
+  }
+  try {
+    const result = await operatorApi("/api/batches/sync", {
+      batch: current,
+      event: readEventForm(),
+      audit: { source: "browser_operator", requested_at: new Date().toISOString() }
+    }, token);
+    renderLiveWriteResult(`Synced ${result.event.event_type}; readback hash ${shortHash(result.verification.readback_integrity_hash)}.`, true);
+    await load();
+  } catch (error) {
+    renderLiveWriteResult(error.message, false);
+  }
+}
+
+async function mintToDual() {
+  const token = $("operatorToken").value.trim();
+  if (!token) {
+    renderLiveWriteResult("Operator token required.", false);
+    return;
+  }
+  try {
+    const result = await operatorApi("/api/batches/mint", {
+      batch: current,
+      audit: { source: "browser_operator", requested_at: new Date().toISOString() }
+    }, token);
+    renderLiveWriteResult(`Minted ${result.object?.id || "batch object"}; hash ${shortHash(result.verification.readback_integrity_hash)}.`, true);
+    await load();
+  } catch (error) {
+    renderLiveWriteResult(error.message, false);
+  }
+}
+
+async function operatorApi(path, body, token) {
+  const response = await fetch(path, {
+    method: "POST",
+    headers: {
+      accept: "application/json",
+      "content-type": "application/json",
+      "x-demo-operator-token": token
+    },
+    body: JSON.stringify(body)
+  });
+  const payload = await response.json().catch(() => ({}));
+  if (!response.ok || payload.ok === false) {
+    throw new Error(payload.error?.message || payload.error || `${path} returned ${response.status}`);
+  }
+  return payload;
+}
+
+function renderLiveWriteResult(message, ok) {
+  $("liveWriteResult").className = `decision-panel ${ok ? "approved" : "blocked"}`;
+  $("liveWriteResult").innerHTML = `<strong>${escapeHtml(message)}</strong>`;
+}

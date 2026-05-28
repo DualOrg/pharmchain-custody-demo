@@ -1,4 +1,4 @@
-import { evaluateHandoff, getCurrentBatch, getProofBundle, getStatus, template } from "../src/pharmchain.mjs";
+import { applyApprovedHandoff, batchTemplateProperties, evaluateHandoff, getCurrentBatch, getProofBundle, getStatus, template } from "../src/pharmchain.mjs";
 
 function assert(condition, message) {
   if (!condition) throw new Error(message);
@@ -19,6 +19,12 @@ const approved = evaluateHandoff({ batch: current, event: current.next_event });
 assert(approved.result === "Approved", "valid pharmacy receipt is approved");
 assert(approved.next_state === "At_Pharmacy", "valid pharmacy receipt advances state");
 assert(approved.proof.integrity_hash, "approved handoff returns integrity hash");
+
+const advanced = applyApprovedHandoff(current, current.next_event, approved);
+assert(advanced.batch.current_state === "At_Pharmacy", "approved handoff materializes next batch state");
+assert(advanced.batch.custody_events.length === current.custody_events.length + 1, "approved handoff appends custody event");
+assert(advanced.event.hash, "approved handoff custody event has derived hash");
+assert(batchTemplateProperties(advanced.batch).integrity_hash, "batch template properties include integrity hash");
 
 const blockedTemperature = evaluateHandoff({
   batch: current,
@@ -48,5 +54,5 @@ const stringFalse = evaluateHandoff({
 });
 assert(stringFalse.result === "Blocked", "string false does not pass boolean gates");
 
-assert(template.safety.live_dual_writes === false, "template declares no live DUAL writes");
+assert(template.safety.live_dual_writes === "operator_gated_when_configured", "template declares operator-gated live DUAL writes");
 assert(template.actions.length === 3, "template declares three custody lifecycle actions");

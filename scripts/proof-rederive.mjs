@@ -1,4 +1,5 @@
-import { cloneBatch, evaluateHandoff, getCurrentBatch, getProofBundle, stableHash } from "../src/pharmchain.mjs";
+import { cloneBatch, evaluateHandoff, stableHash } from "../src/pharmchain.mjs";
+import { getCurrentBatchLive, getProofBundleLive } from "../src/dual-live.mjs";
 import { execFile } from "node:child_process";
 import { promisify } from "node:util";
 
@@ -17,8 +18,8 @@ async function json(path) {
   } catch (error) {
     if (canUseDirectFallback(error)) {
       console.log(`ok - local HTTP unavailable, using in-process fallback for ${path}`);
-      if (path === "/api/batches/current") return getCurrentBatch();
-      if (path === "/api/proof") return getProofBundle();
+      if (path === "/api/batches/current") return getCurrentBatchLive();
+      if (path === "/api/proof") return getProofBundleLive();
     }
     throw error;
   }

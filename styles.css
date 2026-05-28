@@ -51,6 +51,11 @@ button.secondary {
   color: var(--ink);
 }
 
+button:disabled {
+  cursor: not-allowed;
+  opacity: 0.48;
+}
+
 h1,
 h2,
 p {
@@ -381,6 +386,17 @@ select {
 
 .decision-panel.blocked {
   background: #fff0ee;
+}
+
+.decision-panel.subtle {
+  background: var(--surface-2);
+  color: var(--muted);
+  min-height: 44px;
+}
+
+.operator-label {
+  margin-top: 12px;
+  text-transform: none;
 }
 
 .proof-card code,

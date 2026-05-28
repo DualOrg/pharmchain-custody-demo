@@ -2,9 +2,15 @@ import http from "node:http";
 import { readFile } from "node:fs/promises";
 import { extname, join, normalize } from "node:path";
 import { fileURLToPath } from "node:url";
+import currentBatch from "./api/batches/current.js";
+import mintBatch from "./api/batches/mint.js";
+import syncBatch from "./api/batches/sync.js";
+import dualStatus from "./api/dual/status.js";
 import mcp from "./api/mcp.js";
+import proofBundle from "./api/proof.js";
+import templateRoute from "./api/template.js";
 import { getDeploymentInfo } from "./src/deployment.mjs";
-import { evaluateHandoff, getCurrentBatch, getProofBundle, getStatus, template } from "./src/pharmchain.mjs";
+import { evaluateHandoff } from "./src/pharmchain.mjs";
 
 const root = fileURLToPath(new URL(".", import.meta.url));
 const port = Number(process.env.PORT || 4182);
@@ -29,11 +35,13 @@ const routes = new Map([
   ["GET /api/mcp", mcp],
   ["POST /api/mcp", mcp],
   ["OPTIONS /api/mcp", mcp],
-  ["GET /api/dual/status", jsonRoute(getStatus)],
-  ["GET /api/batches/current", jsonRoute(getCurrentBatch)],
+  ["GET /api/dual/status", dualStatus],
+  ["GET /api/batches/current", currentBatch],
   ["POST /api/batches/evaluate", jsonRoute((request) => evaluateHandoff(request.body))],
-  ["GET /api/proof", jsonRoute(getProofBundle)],
-  ["GET /api/template", jsonRoute(() => template)],
+  ["POST /api/batches/mint", mintBatch],
+  ["POST /api/batches/sync", syncBatch],
+  ["GET /api/proof", proofBundle],
+  ["GET /api/template", templateRoute],
   ["GET /api/deployment", jsonRoute(getDeploymentInfo)]
 ]);
 
@@ -70,9 +78,14 @@ async function handleApi(request, response, url) {
     body
   };
   const wrappedResponse = {
+    statusCode: 200,
     setHeader(name, value) {
       response.setHeader(name, value);
       return wrappedResponse;
+    },
+    end(payload = "") {
+      response.writeHead(wrappedResponse.statusCode);
+      response.end(payload);
     },
     status(statusCode) {
       return {

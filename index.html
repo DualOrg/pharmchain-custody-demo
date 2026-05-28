@@ -20,6 +20,7 @@
         </div>
         <div class="topbar-actions">
           <span id="dualStatus" class="status-pill">Local proof</span>
+          <span id="readbackStatus" class="status-pill">Readback pending</span>
           <button id="copyBriefBtn" class="secondary">Copy brief</button>
           <button id="exportProofBtn">Export proof</button>
         </div>
@@ -97,9 +98,22 @@
           <div class="panel-section">
             <div class="section-head">
               <h2>Proof Rail</h2>
-              <span class="status-pill safe">No public writes</span>
+              <span id="writeBoundary" class="status-pill safe">No public writes</span>
             </div>
             <div class="proof-grid" id="proofGrid"></div>
+          </div>
+          <div class="panel-section">
+            <div class="section-head">
+              <h2>Live DUAL</h2>
+              <span id="operatorGate" class="metric-pill">Gate</span>
+            </div>
+            <div class="surface-list" id="dualLiveList"></div>
+            <label class="operator-label">Operator token<input id="operatorToken" type="password" autocomplete="off" spellcheck="false"></label>
+            <div class="button-row">
+              <button id="syncDualBtn">Sync handoff</button>
+              <button id="mintDualBtn" class="secondary">Mint batch</button>
+            </div>
+            <div id="liveWriteResult" class="decision-panel subtle"></div>
           </div>
           <div class="panel-section">
             <h2>MCP/API Surface</h2>
@@ -107,6 +121,8 @@
               <code>GET /api/dual/status</code>
               <code>GET /api/batches/current</code>
               <code>POST /api/batches/evaluate</code>
+              <code>POST /api/batches/sync</code>
+              <code>POST /api/batches/mint</code>
               <code>GET /api/proof</code>
               <code>GET /api/deployment</code>
               <code>POST /mcp</code>

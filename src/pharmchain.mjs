@@ -3,6 +3,7 @@ import { createHash } from "node:crypto";
 export const ORG_ID = "69b935b4187e903f826bbe71";
 export const TEMPLATE_ID = "pharmchain-template-local-v1";
 export const OBJECT_ID = "pharmchain-batch-local-v1";
+export const TEMPLATE_NAME = "io.dual.pharmchain.batch.v1";
 
 export const STATES = ["Manufactured", "In_Transit", "At_Pharmacy", "Dispensed"];
 
@@ -78,8 +79,7 @@ export const canonicalBatch = {
       actor: "Northstar Biologics",
       event_type: "manufactured",
       at: "2026-05-27T22:10:00.000Z",
-      evidence_ref: "mfr-release-certificate.pdf",
-      hash: "0x94ac4d9cdb0b5c7f"
+      evidence_ref: "mfr-release-certificate.pdf"
     },
     {
       id: "evt_whs_pickup",
@@ -87,8 +87,7 @@ export const canonicalBatch = {
       actor: "Harbour Wholesale",
       event_type: "release_to_wholesaler",
       at: "2026-05-28T01:40:00.000Z",
-      evidence_ref: "asn_2026_05_28_glp1_004.json",
-      hash: "0xaf2b87ec5d90122b"
+      evidence_ref: "asn_2026_05_28_glp1_004.json"
     },
     {
       id: "evt_cold_scan",
@@ -96,15 +95,14 @@ export const canonicalBatch = {
       actor: "Cold chain sensor",
       event_type: "temperature_window",
       at: "2026-05-28T04:12:44.000Z",
-      evidence_ref: "sensor-window-042.csv",
-      hash: "0xf61cd0f9e7ad1140"
+      evidence_ref: "sensor-window-042.csv"
     }
-  ]
+  ].map(withEventHash)
 };
 
 export const template = {
   id: TEMPLATE_ID,
-  name: "io.dual.pharmchain.batch.v1",
+  name: TEMPLATE_NAME,
   description: "Serialized drug-family custody token for DSCSA-style manufacturer-to-dispenser proof.",
   org_id: ORG_ID,
   object_type: "pharma_batch",
@@ -129,7 +127,7 @@ export const template = {
     moves_to: transition.to
   })),
   safety: {
-    live_dual_writes: false,
+    live_dual_writes: "operator_gated_when_configured",
     patient_pii_stored: false,
     public_write_tools: false
   }
@@ -207,9 +205,10 @@ export function getProofBundle(input = {}) {
   const evaluation = evaluateHandoff({ batch, event });
   return {
     verifier: "pharmchain-local-proof-v1",
-    verifier_level: "local_rederived",
+    verifier_level: input.verifier_level || "local_rederived",
+    source: input.source || "local_seed",
     publicWrites: false,
-    liveDualWrites: false,
+    liveDualWrites: Boolean(input.liveDualWrites),
     org_id: ORG_ID,
     template_id: TEMPLATE_ID,
     object_id: OBJECT_ID,
@@ -220,6 +219,7 @@ export function getProofBundle(input = {}) {
     result: evaluation.result,
     hashes: evaluation.proof,
     evidence_refs: batch.custody_events.map((item) => item.evidence_ref),
+    dual_readback: input.dual_readback || null,
     generated_at: new Date().toISOString()
   };
 }
@@ -234,6 +234,8 @@ export function buildDefaultEvent(batch = canonicalBatch) {
   return {
     event_type: next,
     actor: actorByEvent[next] || batch.pharmacy.name,
+    sender: next === "receive_at_pharmacy" ? batch.wholesaler.name : batch.manufacturer.name,
+    receiver: next === "release_to_wholesaler" ? batch.wholesaler.name : batch.pharmacy.name,
     receiver_id: batch.pharmacy.receiver_id,
     facility_id: batch.pharmacy.facility_id,
     temperature_min_celsius: batch.sensor_window.min_celsius,
@@ -257,7 +259,9 @@ export function normalizeBatch(batch) {
     pharmacy: { ...canonicalBatch.pharmacy, ...(batch.pharmacy || {}) },
     dscsa: { ...canonicalBatch.dscsa, ...(batch.dscsa || {}) },
     sensor_window: { ...canonicalBatch.sensor_window, ...(batch.sensor_window || {}) },
-    custody_events: Array.isArray(batch.custody_events) ? batch.custody_events : structuredClone(canonicalBatch.custody_events)
+    custody_events: normalizeCustodyEvents(
+      Array.isArray(batch.custody_events) ? batch.custody_events : structuredClone(canonicalBatch.custody_events)
+    )
   };
 }
 
@@ -273,6 +277,122 @@ export function normalizeEvent(batch, event) {
     transaction_information: parseBoolean(event.transaction_information, defaults.transaction_information),
     transaction_statement: parseBoolean(event.transaction_statement, defaults.transaction_statement),
     patient_pii_included: parseBoolean(event.patient_pii_included, defaults.patient_pii_included)
+  };
+}
+
+export function applyApprovedHandoff(batchInput, eventInput, evaluationInput = null) {
+  const batch = normalizeBatch(batchInput);
+  const event = normalizeEvent(batch, eventInput || buildDefaultEvent(batch));
+  const evaluation = evaluationInput || evaluateHandoff({ batch, event });
+  if (evaluation.result !== "Approved") {
+    const error = new Error(`Cannot write blocked PharmChain handoff: ${evaluation.reason}`);
+    error.status = 409;
+    error.evaluation = evaluation;
+    throw error;
+  }
+  const at = event.at || new Date().toISOString();
+  const custodyEvent = withEventHash({
+    id: event.id || `evt_${event.event_type}_${Date.parse(at) || Date.now()}`,
+    state: evaluation.next_state,
+    actor: event.actor,
+    sender: event.sender,
+    receiver: event.receiver,
+    event_type: event.event_type,
+    at,
+    evidence_ref: event.evidence_ref,
+    receiver_id: event.receiver_id,
+    facility_id: event.facility_id,
+    temperature_min_celsius: event.temperature_min_celsius,
+    temperature_max_celsius: event.temperature_max_celsius,
+    excursions: event.excursions
+  });
+  const nextBatch = normalizeBatch({
+    ...batch,
+    current_state: evaluation.next_state,
+    sensor_window: {
+      ...batch.sensor_window,
+      min_celsius: event.temperature_min_celsius,
+      max_celsius: event.temperature_max_celsius,
+      excursions: event.excursions,
+      last_scan_at: at
+    },
+    custody_events: [...batch.custody_events, custodyEvent],
+    updated_at: at,
+    last_event_hash: custodyEvent.hash,
+    last_decision_result: evaluation.result,
+    last_decision_reason: evaluation.reason,
+    integrity_hash: evaluation.proof.integrity_hash
+  });
+  return {
+    batch: {
+      ...nextBatch,
+      proof: getProofBundle({ batch: nextBatch, event: buildDefaultEvent(nextBatch) }).hashes
+    },
+    event: custodyEvent,
+    evaluation
+  };
+}
+
+export function batchTemplateProperties(batchInput = canonicalBatch) {
+  const batch = normalizeBatch(batchInput);
+  const proof = getProofBundle({ batch, event: buildDefaultEvent(batch) }).hashes;
+  return {
+    object_type: "pharmchain_batch",
+    batch_id: batch.batch_id,
+    product_family: batch.product_family,
+    lot: batch.lot,
+    serial_range: batch.serial_range,
+    unit_count: batch.unit_count,
+    current_state: batch.current_state,
+    manufacturer: batch.manufacturer,
+    wholesaler: batch.wholesaler,
+    pharmacy: batch.pharmacy,
+    dscsa: batch.dscsa,
+    sensor_window: batch.sensor_window,
+    custody_events: normalizeCustodyEvents(batch.custody_events),
+    policy_version: 1,
+    patient_pii_stored: false,
+    batch_hash: proof.batch_hash,
+    custody_root: proof.custody_root,
+    dscsa_hash: proof.dscsa_hash,
+    event_hash: proof.event_hash,
+    state_hash: proof.state_hash,
+    integrity_hash: proof.integrity_hash,
+    last_event_hash: batch.last_event_hash || batch.custody_events.at(-1)?.hash || "",
+    last_decision_result: batch.last_decision_result || "Ready",
+    last_decision_reason: batch.last_decision_reason || "Awaiting next handoff.",
+    updated_at: batch.updated_at || batch.sensor_window.last_scan_at
+  };
+}
+
+export function templatePayload(orgId = ORG_ID) {
+  const properties = batchTemplateProperties(canonicalBatch);
+  return {
+    organization_id: orgId,
+    name: TEMPLATE_NAME,
+    description: "Serialized pharmaceutical custody token with DSCSA-style proof gates.",
+    metadata: {
+      source: "pharmchain-custody-demo",
+      schema_version: "pharmchain.batch.v1",
+      proof_scope: "manufacturer_to_dispenser_custody",
+      public_writes: false,
+      patient_pii_stored: false
+    },
+    object: {
+      metadata: {
+        name: "PharmChain GLP-1 Batch",
+        description: "Serialized GLP-1 cold-chain batch custody object.",
+        category: "pharmaceutical-custody"
+      },
+      custom: properties
+    },
+    actions: [
+      { name: "mint", alias: "open_pharmchain_batch" },
+      { name: "update", alias: "record_pharmchain_handoff" }
+    ],
+    public_access: {
+      custom: Object.keys(properties)
+    }
   };
 }
 
@@ -404,6 +524,20 @@ export function buildProof(batch, event, decision) {
     state_hash,
     integrity_hash
   };
+}
+
+export function withEventHash(event) {
+  const { hash: _hash, ...withoutHash } = event || {};
+  return {
+    ...withoutHash,
+    hash: stableHash(withoutHash)
+  };
+}
+
+function normalizeCustodyEvents(events = []) {
+  return events
+    .filter((event) => event && typeof event === "object")
+    .map(withEventHash);
 }
 
 export function stableHash(value) {
