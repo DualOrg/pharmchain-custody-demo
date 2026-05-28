@@ -1,6 +1,6 @@
 # PharmChain 9.8 Rubric
 
-This score applies to the local reviewer-grade proof demo, not a production DSCSA platform.
+This score applies to the hosted reviewer demo running in local-proof/no-write mode, not a production DSCSA platform.
 
 ## 9.8 Requirements
 
@@ -17,7 +17,7 @@ This score applies to the local reviewer-grade proof demo, not a production DSCS
 
 ## Score Boundary
 
-Eligible for `9.8/10` when all checks above pass and Cowork review finds no concrete blocker inside the stated local-proof scope.
+Eligible for `9.8/10` when all checks above pass and Cowork review finds no concrete blocker inside the stated hosted-reviewer/local-proof scope.
 
 Not included in the score:
 

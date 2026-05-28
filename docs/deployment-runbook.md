@@ -6,6 +6,8 @@
 - Hosting: Vercel
 - Mode: hosted reviewer demo
 - Write posture: read/evaluate/proof only
+- Production URL: `https://pharmchain-custody-demo.vercel.app`
+- Production provenance: `https://pharmchain-custody-demo.vercel.app/api/deployment`
 
 ## Local Preflight
 
@@ -33,9 +35,9 @@ No DUAL API key, operator token, patient data, or write credential is required f
 ## Production Acceptance
 
 ```bash
-DEMO_BASE_URL=https://<vercel-url> SMOKE_STRICT_NETWORK=1 npm run smoke
-DEMO_BASE_URL=https://<vercel-url> SMOKE_STRICT_NETWORK=1 npm run proof:rederive
-curl -s https://<vercel-url>/api/deployment
+DEMO_BASE_URL=https://pharmchain-custody-demo.vercel.app SMOKE_STRICT_NETWORK=1 npm run smoke
+DEMO_BASE_URL=https://pharmchain-custody-demo.vercel.app SMOKE_STRICT_NETWORK=1 npm run proof:rederive
+curl -s https://pharmchain-custody-demo.vercel.app/api/deployment
 ```
 
 Acceptance requires:

@@ -2,7 +2,13 @@
 
 ## Review Scope
 
-PharmChain is a DUAL-style proof demo for one serialized pharmaceutical batch.
+PharmChain is a hosted DUAL-style reviewer demo for one serialized pharmaceutical batch. It runs in local-proof/no-write mode.
+
+Production URL: `https://pharmchain-custody-demo.vercel.app`
+
+Source: `https://github.com/DualOrg/pharmchain-custody-demo`
+
+Production provenance: `https://pharmchain-custody-demo.vercel.app/api/deployment`
 
 This review covers:
 
@@ -10,7 +16,7 @@ This review covers:
 - read-only API;
 - read-only MCP;
 - DSCSA gate simulation;
-- local proof re-derivation;
+- hosted reviewer proof re-derivation;
 - no-live-write and no-PII boundary.
 
 This review does not cover:
@@ -39,6 +45,8 @@ npm run proof:mcp
 npm run proof:network
 DEMO_BASE_URL=http://127.0.0.1:4182 npm run smoke
 DEMO_BASE_URL=http://127.0.0.1:4182 npm run proof:rederive
+DEMO_BASE_URL=https://pharmchain-custody-demo.vercel.app SMOKE_STRICT_NETWORK=1 npm run smoke
+DEMO_BASE_URL=https://pharmchain-custody-demo.vercel.app SMOKE_STRICT_NETWORK=1 npm run proof:rederive
 ```
 
 ## Expected Evidence

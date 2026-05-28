@@ -2,7 +2,7 @@
 
 ## Scope
 
-This MCP surface is for reviewer and agent inspection of the PharmChain local proof demo. It is read/evaluate/proof only.
+This MCP surface is for reviewer and agent inspection of the PharmChain hosted reviewer demo running in local-proof/no-write mode. It is read/evaluate/proof only.
 
 ## Required Vault Context
 
@@ -24,6 +24,7 @@ Read:
 
 - Local: `http://127.0.0.1:4182/mcp`
 - Alternate route: `http://127.0.0.1:4182/api/mcp`
+- Production: `https://pharmchain-custody-demo.vercel.app/mcp`
 
 ## Tools
 

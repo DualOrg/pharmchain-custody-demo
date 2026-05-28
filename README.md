@@ -12,7 +12,7 @@ The demo is based on the DUAL idea `PharmChain`: manufacturer-to-dispenser custo
 - Lifecycle: `Manufactured -> In_Transit -> At_Pharmacy -> Dispensed`.
 - DSCSA gate checks: transaction information, transaction statement, authorized partners, product identifier verification, receiver identity, and cold-chain window.
 - Read-only API and MCP surfaces for agents/reviewers.
-- Local proof bundle with batch hash, custody root, DSCSA hash, event hash, state hash, and integrity hash.
+- Hosted reviewer demo running in local-proof/no-write mode, with batch hash, custody root, DSCSA hash, event hash, state hash, and integrity hash.
 - Explicit boundary: no live DUAL writes, no public write tools, no patient PII.
 
 ## Local Use
@@ -45,8 +45,10 @@ CI runs `npm run proof:network`, which starts the server and requires strict HTT
 ## Hosted Reviewer Demo
 
 Target repository: `https://github.com/DualOrg/pharmchain-custody-demo`
+Production URL: `https://pharmchain-custody-demo.vercel.app`
+Production provenance: `https://pharmchain-custody-demo.vercel.app/api/deployment`
 
-Expected Vercel routes:
+Reviewer routes:
 
 - `/` reviewer UI.
 - `/api/dual/status` safety/readiness.
@@ -60,8 +62,8 @@ Expected Vercel routes:
 Production validation:
 
 ```bash
-DEMO_BASE_URL=https://<vercel-url> SMOKE_STRICT_NETWORK=1 npm run smoke
-DEMO_BASE_URL=https://<vercel-url> SMOKE_STRICT_NETWORK=1 npm run proof:rederive
+DEMO_BASE_URL=https://pharmchain-custody-demo.vercel.app SMOKE_STRICT_NETWORK=1 npm run smoke
+DEMO_BASE_URL=https://pharmchain-custody-demo.vercel.app SMOKE_STRICT_NETWORK=1 npm run proof:rederive
 ```
 
 ## Screenshots
@@ -125,7 +127,7 @@ The MCP endpoint intentionally exposes no sync, mint, update, execute-action, op
 
 ## Safety Boundary
 
-This is a local proof demo. It does not execute live DUAL writes, does not accept operator tokens, and does not store patient PII. A production integration would need scoped server-side DUAL credentials, real DSCSA partner identifiers, authenticated users, audit retention, and legal/regulatory review before write mode.
+This is a hosted reviewer demo running in local-proof/no-write mode. It does not execute live DUAL writes, does not accept operator tokens, and does not store patient PII. A production integration would need scoped server-side DUAL credentials, real DSCSA partner identifiers, authenticated users, audit retention, and legal/regulatory review before write mode.
 
 ## 9.8 Quality Bar
 
