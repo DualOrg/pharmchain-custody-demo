@@ -108,7 +108,13 @@ export async function getCurrentBatchLive() {
   }
   const current = await readCurrentObject();
   const nextEvent = buildNextEvent(current.batch);
-  const evaluation = nextEvent ? evaluateHandoff({ batch: current.batch, event: nextEvent }) : null;
+  const evaluation = nextEvent
+    ? {
+        ...evaluateHandoff({ batch: current.batch, event: nextEvent }),
+        liveDualWrites: current.status.writable,
+        writeExecutionExposed: current.status.writeExecutionExposed
+      }
+    : null;
   return {
     ...current.batch,
     source: "dual_readback",
@@ -183,7 +189,11 @@ export async function syncHandoff(input = {}) {
   const balance = await requirePositiveBalance(config);
   const current = input.batch ? normalizeBatch(input.batch) : (await readCurrentObject()).batch;
   const event = input.event || current.next_event || {};
-  const evaluation = evaluateHandoff({ batch: current, event });
+  const evaluation = {
+    ...evaluateHandoff({ batch: current, event }),
+    liveDualWrites: true,
+    writeExecutionExposed: "operator_gated"
+  };
   const advanced = applyApprovedHandoff(current, event, evaluation);
   const metadata = semanticMetadata("pharmchain_handoff_synced", advanced.batch, {
     event: advanced.event,
