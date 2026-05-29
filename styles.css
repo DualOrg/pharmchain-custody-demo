@@ -1,20 +1,20 @@
 @import url("https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;600&display=swap");
 
 :root {
-  --bg: #f4f7f8;
+  --bg: #edf6f3;
   --surface: #ffffff;
-  --surface-2: #f8fbfc;
-  --surface-strong: #eaf6f8;
-  --ink: #0e2a33;
-  --muted: #3a5560;
-  --faint: #6b838c;
-  --line: #dfe8eb;
-  --line-strong: #c9d6da;
-  --green: #2094a2;
-  --green-soft: #eaf7f8;
-  --cyan: #2094a2;
-  --cyan-dark: #155f69;
-  --blue: #1b6fb8;
+  --surface-2: #f8fcfb;
+  --surface-strong: #e7f5f1;
+  --ink: #12312f;
+  --muted: #426461;
+  --faint: #76918f;
+  --line: #d8e8e4;
+  --line-strong: #bdd1cc;
+  --green: #177b69;
+  --green-soft: #e6f5ef;
+  --cyan: #238a9b;
+  --cyan-dark: #145968;
+  --blue: #2769a8;
   --amber: #c28a00;
   --red: #b33a35;
   --shadow: 0 1px 2px rgba(14, 42, 51, 0.04), 0 8px 24px rgba(14, 42, 51, 0.04);
@@ -28,7 +28,11 @@
 
 body {
   margin: 0;
-  background: var(--bg);
+  background:
+    linear-gradient(180deg, #fbfffd 0, var(--bg) 430px),
+    linear-gradient(90deg, rgba(18, 49, 47, 0.035) 1px, transparent 1px),
+    linear-gradient(0deg, rgba(18, 49, 47, 0.035) 1px, transparent 1px);
+  background-size: auto, 34px 34px, 34px 34px;
   color: var(--ink);
 }
 
@@ -96,6 +100,7 @@ h2 {
   align-items: center;
   background: rgba(255, 255, 255, 0.94);
   border: 1px solid var(--line);
+  border-top: 4px solid var(--green);
   border-radius: 8px;
   box-shadow: var(--shadow);
   display: flex;
@@ -160,7 +165,7 @@ h2 {
   background: var(--surface);
   border: 1px solid var(--line);
   border-radius: 8px;
-  box-shadow: var(--shadow);
+  box-shadow: 0 1px 2px rgba(18, 49, 47, 0.03), 0 12px 30px rgba(18, 49, 47, 0.045);
   min-width: 0;
 }
 
@@ -593,8 +598,8 @@ button.secondary,
 
 .demo-disclosure {
   align-items: center;
-  background: #eef8fa;
-  border: 1px solid rgba(32, 148, 162, 0.22);
+  background: #eaf7f2;
+  border: 1px solid rgba(23, 123, 105, 0.26);
   border-radius: 8px;
   color: var(--ink);
   display: flex;
@@ -619,8 +624,9 @@ button.secondary,
   align-items: center;
   background: #fff;
   border: 1px solid var(--line);
+  border-left: 4px solid var(--green);
   border-radius: 8px;
-  box-shadow: var(--shadow);
+  box-shadow: 0 1px 2px rgba(18, 49, 47, 0.03), 0 12px 30px rgba(18, 49, 47, 0.045);
   display: grid;
   gap: 14px;
   grid-template-columns: minmax(0, 1fr) minmax(240px, 340px);
