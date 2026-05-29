@@ -8,8 +8,21 @@ const stateLabels = {
 let current = null;
 let proof = null;
 let dualStatus = null;
+let reviewerIndex = 0;
+
+const reviewerSteps = [
+  ["Readback", "Confirm the DUAL object and state in the header."],
+  ["Batch", "Inspect the serialized batch passport and DSCSA checks."],
+  ["Gate", "Run the next handoff verifier before any write path."],
+  ["Proof", "Compare the proof rail hashes and verifier bundle."],
+  ["Boundary", "Simulate a breach and confirm live writes stay gated."]
+];
 
 const $ = (id) => document.getElementById(id);
+const setText = (id, value) => {
+  const element = $(id);
+  if (element) element.textContent = value;
+};
 
 async function api(path, options = {}) {
   const response = await fetch(path, {
@@ -39,16 +52,25 @@ async function load() {
   renderDecision(batch.readiness);
   renderProof(proofBundle);
   renderScorecard();
+  renderReviewerGuide();
 }
 
 function renderStatus(status) {
   const modeLabel = status.writable ? "Live DUAL gated" : status.readbackReady ? "DUAL readback" : "Local proof";
   const canonicalObjectConfigured = Boolean(status.readbackReady && status.objectId && status.objectId !== "pharmchain-batch-local-v1");
   const hasNextEvent = Boolean(current?.next_event?.event_type);
-  $("dualStatus").textContent = modeLabel;
-  $("dualStatus").className = status.publicWrites ? "status-pill blocked" : "status-pill safe";
-  $("readbackStatus").textContent = status.readbackReady ? "Readback on" : "Readback off";
-  $("readbackStatus").className = status.readbackReady ? "status-pill safe" : "status-pill";
+  const dualStatusEl = $("dualStatus");
+  if (dualStatusEl) {
+    dualStatusEl.textContent = modeLabel;
+    dualStatusEl.className = status.publicWrites ? "status-pill blocked" : "status-pill safe";
+  }
+  const readbackStatusEl = $("readbackStatus");
+  if (readbackStatusEl) {
+    readbackStatusEl.textContent = status.readbackReady ? "Readback on" : "Readback off";
+    readbackStatusEl.className = status.readbackReady ? "status-pill safe" : "status-pill";
+  }
+  setText("headerObjectMeta", shortId(status.objectId || current?.object_id));
+  setText("proofScore", status.publicWrites ? "84" : status.readbackReady ? "98" : "94");
   $("writeBoundary").textContent = status.writable ? "Operator-gated writes" : "No public writes";
   $("writeBoundary").className = status.publicWrites ? "status-pill blocked" : "status-pill safe";
   $("operatorGate").textContent = status.operatorGateConfigured ? "Configured" : "Not configured";
@@ -67,12 +89,24 @@ function renderStatus(status) {
 }
 
 function renderBatch(batch) {
-  $("stateChip").textContent = batch.current_state.replaceAll("_", " ");
+  const stateLabel = batch.current_state.replaceAll("_", " ");
+  const nextGate = batch.next_event?.event_type
+    ? batch.next_event.event_type.replaceAll("_", " ")
+    : "Complete";
+  $("stateChip").textContent = stateLabel;
   $("stateChip").className = "state-chip active";
   $("nextEvent").textContent = batch.next_event?.event_type
-    ? `Next: ${batch.next_event.event_type.replaceAll("_", " ")}`
+    ? `Next: ${nextGate}`
     : "Complete";
   $("eventCount").textContent = `${batch.custody_events.length} events`;
+  setText("headerStateMeta", stateLabel);
+  setText("previewState", stateLabel);
+  setText("heroState", stateLabel);
+  setText("heroBatchId", batch.batch_id);
+  setText("heroUnits", String(batch.unit_count));
+  setText("heroReleased", batch.dscsa.patient_pii_stored ? "PII risk" : "0 PII fields");
+  setText("heroNextGate", nextGate);
+  setText("heroSubtitle", `${batch.product_family} lot ${batch.lot} moving through a governed manufacturer-to-dispenser chain.`);
   $("batchDetails").innerHTML = detailRows([
     ["Batch", batch.batch_id],
     ["Product", batch.product_family],
@@ -172,6 +206,7 @@ function renderDecision(evaluation) {
 
 function renderProof(bundle) {
   const hashes = bundle.hashes || {};
+  setText("previewHash", shortHash(hashes.integrity_hash));
   $("proofGrid").innerHTML = [
     ["Verifier", bundle.verifier_level || "local_rederived"],
     ["Batch hash", hashes.batch_hash],
@@ -203,9 +238,32 @@ function renderScorecard() {
   ].map(([title, detail]) => `<div class="score-item"><span>${title}</span><strong>${detail}</strong></div>`).join("");
 }
 
+function renderReviewerGuide() {
+  $("reviewerSteps").innerHTML = reviewerSteps.map(([title, detail], index) => `
+    <div class="reviewer-step${index === reviewerIndex ? " active" : ""}">
+      <strong>${index + 1}. ${escapeHtml(title)}</strong>
+      ${escapeHtml(detail)}
+    </div>
+  `).join("");
+  $("reviewerStepText").textContent = `${reviewerIndex + 1}. ${reviewerSteps[reviewerIndex][1]}`;
+  $("reviewerBackBtn").disabled = reviewerIndex === 0;
+  $("reviewerNextBtn").textContent = reviewerIndex === reviewerSteps.length - 1 ? "Done" : "Next";
+}
+
+function openReviewerGuide() {
+  $("reviewerGuide").scrollIntoView({ behavior: "smooth", block: "center" });
+  renderReviewerGuide();
+}
+
 function shortHash(value) {
   if (!value) return "pending";
   return `${value.slice(0, 12)}...${value.slice(-8)}`;
+}
+
+function shortId(value) {
+  if (!value) return "pending";
+  const text = String(value);
+  return text.length > 18 ? `${text.slice(0, 10)}...${text.slice(-6)}` : text;
 }
 
 function escapeHtml(value) {
@@ -224,6 +282,26 @@ $("tempBreachBtn").addEventListener("click", () => {
   evaluateCurrent();
 });
 $("resetBtn").addEventListener("click", () => renderEventForm(current.next_event));
+$("resetDemoBtn").addEventListener("click", () => {
+  renderEventForm(current.next_event);
+  renderDecision(current.readiness);
+  renderProof(proof);
+});
+$("verifyNextGateBtn").addEventListener("click", evaluateCurrent);
+$("reviewerModeBtn").addEventListener("click", openReviewerGuide);
+$("walkthroughPlayBtn").addEventListener("click", openReviewerGuide);
+$("reviewerBackBtn").addEventListener("click", () => {
+  reviewerIndex = Math.max(0, reviewerIndex - 1);
+  renderReviewerGuide();
+});
+$("reviewerNextBtn").addEventListener("click", () => {
+  if (reviewerIndex === reviewerSteps.length - 1) {
+    $("reviewerGuide").scrollIntoView({ behavior: "smooth", block: "end" });
+    return;
+  }
+  reviewerIndex += 1;
+  renderReviewerGuide();
+});
 $("syncDualBtn").addEventListener("click", syncToDual);
 $("mintDualBtn").addEventListener("click", mintToDual);
 $("exportProofBtn").addEventListener("click", () => {

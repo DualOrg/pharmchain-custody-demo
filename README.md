@@ -48,6 +48,8 @@ Target repository: `https://github.com/DualOrg/pharmchain-custody-demo`
 Production URL: `https://pharmchain-custody-demo.vercel.app`
 Production provenance: `https://pharmchain-custody-demo.vercel.app/api/deployment`
 
+The reviewer UI now follows the TradeFlow control-desk benchmark pattern: a compact DUAL header, first-screen demo disclosure, 60-90 second walkthrough strip, batch hero, left passport rail, central verifier workflow, right proof rail, and bottom reviewer checklist.
+
 Reviewer routes:
 
 - `/` reviewer UI.

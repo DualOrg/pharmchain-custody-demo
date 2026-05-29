@@ -16,6 +16,7 @@ This review covers:
 - public read/evaluate/proof API;
 - MCP read/evaluate/proof tools plus operator-gated write tools;
 - DSCSA gate simulation;
+- benchmark-style reviewer walkthrough and first-screen demo support;
 - hosted reviewer proof re-derivation;
 - no-public-write and no-PII boundary.
 
@@ -69,6 +70,7 @@ CI and hosted-reviewer validation should use `npm run proof:network` or set `SMO
 | Category | Requirement |
 |---|---|
 | Product clarity | The demo immediately reads as a pharma custody desk, not a generic dashboard. |
+| Demo support | First-screen disclosure, guided walkthrough, and reviewer checklist make the demo runnable without a separate script. |
 | DUAL-native model | Template, object state, event lifecycle, and proof hashes are visible. |
 | DSCSA fidelity | Handoff checks include transaction info, transaction statement, authorized partners, product identifiers, and receiver identity. |
 | Safety | No patient PII, no public writes, no exposed secrets; live writes require operator token. |
