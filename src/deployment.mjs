@@ -16,6 +16,8 @@ export function getDeploymentInfo() {
       templateName: status.templateName,
       templateId: status.templateId,
       objectId: status.objectId,
+      targetNetwork: status.targetNetwork,
+      networkMigration: status.network,
       mode: status.mode,
       readbackReady: status.readbackReady,
       writable: status.writable,

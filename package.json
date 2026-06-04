@@ -9,8 +9,9 @@
   },
   "scripts": {
     "start": "node server.mjs",
-    "check": "node --check server.mjs && node --check client.js && node --check src/pharmchain.mjs && node --check src/dual-live.mjs && node --check src/deployment.mjs && node --check api/mcp.js && node --check api/dual/status.js && node --check api/batches/current.js && node --check api/batches/evaluate.js && node --check api/batches/mint.js && node --check api/batches/sync.js && node --check api/proof.js && node --check api/template.js && node --check api/deployment.js && node --check scripts/smoke-test.mjs && node --check scripts/proof-rederive.mjs && node --check scripts/unit-proof.mjs && node --check scripts/mcp-unit.mjs && node --check scripts/network-proof.mjs && node --check scripts/setup-live-dual.mjs && node --check scripts/dual-live-proof.mjs && node --check scripts/dual-live-write-proof.mjs",
+    "check": "node --check server.mjs && node --check client.js && node --check src/pharmchain.mjs && node --check src/dual-live.mjs && node --check src/deployment.mjs && node --check api/mcp.js && node --check api/dual/status.js && node --check api/batches/current.js && node --check api/batches/evaluate.js && node --check api/batches/mint.js && node --check api/batches/sync.js && node --check api/proof.js && node --check api/template.js && node --check api/deployment.js && node --check scripts/smoke-test.mjs && node --check scripts/proof-rederive.mjs && node --check scripts/unit-proof.mjs && node --check scripts/mcp-unit.mjs && node --check scripts/network-proof.mjs && node --check scripts/mainnet-migration-preflight.mjs && node --check scripts/setup-live-dual.mjs && node --check scripts/dual-live-proof.mjs && node --check scripts/dual-live-write-proof.mjs",
     "qa": "npm run check && npm run proof:unit && npm run proof:mcp && npm run smoke && npm run proof:rederive",
+    "migrate:mainnet:preflight": "node scripts/mainnet-migration-preflight.mjs",
     "proof:network": "node scripts/network-proof.mjs",
     "proof:unit": "node scripts/unit-proof.mjs",
     "proof:mcp": "node scripts/mcp-unit.mjs",

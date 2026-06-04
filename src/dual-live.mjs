@@ -14,11 +14,16 @@ import {
   templatePayload
 } from "./pharmchain.mjs";
 
+export const DEFAULT_DUAL_API_URL = "https://api-testnet.dual.network";
+const MAINNET_CUTOVER_FLAG = "PHARMCHAIN_MAINNET_CUTOVER_CONFIRMED";
+
 export function dualConfig() {
   const writeMode = process.env.DUAL_WRITE_MODE || "read_only";
   const persistenceMode = process.env.DUAL_PERSISTENCE_MODE || "local";
+  const apiUrl = process.env.DUAL_API_URL || DEFAULT_DUAL_API_URL;
+  const requestedNetwork = normalizeDualNetwork(process.env.DUAL_NETWORK || process.env.PHARMCHAIN_DUAL_NETWORK || "");
   return {
-    apiUrl: process.env.DUAL_API_URL || "https://api-testnet.dual.network",
+    apiUrl,
     apiKey: process.env.DUAL_API_KEY || "",
     orgId: process.env.DUAL_ORG_ID || ORG_ID,
     templateName: TEMPLATE_NAME,
@@ -27,17 +32,60 @@ export function dualConfig() {
     operatorToken: process.env.DEMO_OPERATOR_TOKEN || "",
     persistenceMode,
     writeMode,
+    requestedNetwork,
     eventBusPath: process.env.DUAL_EVENTBUS_PATH || "/ebus/execute",
     publicWrites: false
   };
 }
 
+export function networkMigrationPreflight(config = dualConfig()) {
+  const mainnetRequested = config.requestedNetwork === "mainnet";
+  const mainnetCutoverConfirmed = boolEnv(process.env[MAINNET_CUTOVER_FLAG]) || boolEnv(process.env.DUAL_MAINNET_CUTOVER_CONFIRMED);
+  const apiExplicit = Boolean(process.env.DUAL_API_URL);
+  const apiUrlKind = endpointKind(config.apiUrl);
+  const apiBlocksMainnet = endpointIsTestnetOrLegacy(config.apiUrl);
+  const missing = [];
+  if (mainnetRequested) {
+    if (!mainnetCutoverConfirmed) missing.push(`${MAINNET_CUTOVER_FLAG}=true`);
+    if (!apiExplicit) missing.push("DUAL_API_URL=mainnet_api_base");
+    if (apiBlocksMainnet) missing.push("DUAL_API_URL_not_testnet_or_legacy");
+  }
+  const ready = missing.length === 0;
+  return {
+    ready,
+    status: ready ? "network_config_ready" : "mainnet_network_config_blocked",
+    target_network: config.requestedNetwork || "testnet",
+    mainnet_requested: mainnetRequested,
+    mainnet_cutover_confirmed: mainnetCutoverConfirmed,
+    read_allowed: !mainnetRequested || ready,
+    write_allowed: !mainnetRequested || ready,
+    api_url_kind: apiUrlKind,
+    using_default_api_url: !apiExplicit,
+    testnet_or_legacy_endpoint_count: apiBlocksMainnet ? 1 : 0,
+    missing,
+    endpoints: [
+      {
+        key: "DUAL_API_URL",
+        explicit: apiExplicit,
+        kind: apiUrlKind,
+        blocks_mainnet: apiBlocksMainnet
+      }
+    ],
+    public_writes: false,
+    secret_returned: false,
+    note: mainnetRequested && !ready
+      ? "DUAL mainnet mode is blocked until explicit non-testnet API config and cutover confirmation are configured."
+      : "DUAL network config passed the local preflight. This does not prove DUAL readback or live-write readiness."
+  };
+}
+
 export function readiness() {
   const config = dualConfig();
-  const readbackReady = Boolean(config.apiKey && config.objectId);
-  const mintReady = Boolean(config.apiKey && config.templateId && config.operatorToken && config.writeMode === "event_bus");
+  const networkPreflight = networkMigrationPreflight(config);
+  const readbackReady = Boolean(networkPreflight.read_allowed && config.apiKey && config.objectId);
+  const mintReady = Boolean(networkPreflight.write_allowed && config.apiKey && config.templateId && config.operatorToken && config.writeMode === "event_bus");
   const writable = Boolean(readbackReady && mintReady);
-  const missing = [];
+  const missing = [...networkPreflight.missing];
   if (!config.apiKey) missing.push("DUAL_API_KEY");
   if (!config.templateId) missing.push("DUAL_PHARMCHAIN_TEMPLATE_ID");
   if (!config.objectId) missing.push("DUAL_PHARMCHAIN_BATCH_OBJECT_ID");
@@ -49,6 +97,8 @@ export function readiness() {
     runtime: process.env.VERCEL ? "vercel" : "node",
     mode: readbackReady ? "dual" : "local-proof",
     persistenceMode: config.persistenceMode,
+    targetNetwork: networkPreflight.target_network,
+    network: networkPreflight,
     orgId: config.orgId,
     templateName: config.templateName,
     templateId: config.templateId || "pharmchain-template-local-v1",
@@ -68,13 +118,16 @@ export function readiness() {
       patientPiiStored: false,
       publicWriteTools: false,
       operatorGate: config.operatorToken ? "configured" : "not_configured",
-      proofLevel: readbackReady ? "dual_readback_rederived" : "local_rederived"
+      proofLevel: readbackReady ? "dual_readback_rederived" : "local_rederived",
+      networkMigration: networkPreflight
     },
     detail: writable
       ? "DUAL readback and operator-gated event-bus writes are configured."
       : readbackReady
         ? "DUAL readback is configured. Live writes need event_bus mode and DEMO_OPERATOR_TOKEN."
-        : "Running in local proof mode. Set DUAL_API_KEY and DUAL_PHARMCHAIN_BATCH_OBJECT_ID to enable live DUAL readback."
+        : networkPreflight.read_allowed
+          ? "Running in local proof mode. Set DUAL_API_KEY and DUAL_PHARMCHAIN_BATCH_OBJECT_ID to enable live DUAL readback."
+          : "DUAL mainnet mode is blocked until explicit non-testnet API config and cutover confirmation are configured."
   };
 }
 
@@ -275,7 +328,7 @@ export function requireWritable(options = {}) {
   const requireObject = options.requireObject !== false;
   const status = readiness();
   const config = dualConfig();
-  const baseWritable = Boolean(config.apiKey && config.templateId && config.operatorToken && config.writeMode === "event_bus");
+  const baseWritable = Boolean(status.network?.write_allowed && config.apiKey && config.templateId && config.operatorToken && config.writeMode === "event_bus");
   if (!baseWritable || (requireObject && !config.objectId)) {
     const error = new Error(status.detail);
     error.status = 409;
@@ -559,6 +612,34 @@ function verifyBatchIdentity(properties = {}) {
   };
   const ok = Object.values(matches).every(Boolean);
   return { ok, matches, readback_integrity_hash: readback.integrity_hash };
+}
+
+function normalizeDualNetwork(value) {
+  const normalized = String(value || "").trim().toLowerCase();
+  if (["mainnet", "main", "production", "prod"].includes(normalized)) return "mainnet";
+  if (["testnet", "test", "sandbox"].includes(normalized)) return "testnet";
+  return "";
+}
+
+function boolEnv(value) {
+  return ["1", "true", "yes", "y", "on"].includes(String(value || "").trim().toLowerCase());
+}
+
+function endpointKind(value) {
+  const normalized = String(value || "").trim().toLowerCase();
+  if (!normalized) return "empty";
+  if (normalized.includes("api-testnet.dual.network")) return "testnet_api";
+  if (normalized.includes("mcp-testnet.dual.network")) return "testnet_mcp";
+  if (normalized.includes("console-testnet.dual.network") || normalized.includes("console-testnet.blockv.io")) return "testnet_console";
+  if (normalized.includes("explorer-testnet.dual.network")) return "testnet_l3_explorer";
+  if (normalized.includes("explorer-test-v2.dual.network")) return "testnet_l2_explorer";
+  if (normalized.includes("rpc-test-v2.dual.network")) return "testnet_l2_rpc";
+  if (normalized.includes("gateway-48587430648.europe-west6.run.app")) return "legacy_gateway";
+  return "custom";
+}
+
+function endpointIsTestnetOrLegacy(value) {
+  return endpointKind(value) !== "custom";
 }
 
 function summarizeObject(object = {}) {

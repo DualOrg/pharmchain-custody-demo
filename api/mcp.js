@@ -103,6 +103,7 @@ export default async function mcp(request, response) {
     return;
   }
   if (request.method === "GET") {
+    const status = readiness();
     response.status(200).json({
       name: "dual-pharmchain-custody-demo",
       protocol: "mcp-jsonrpc-lite",
@@ -112,8 +113,9 @@ export default async function mcp(request, response) {
       prompts: prompts.map((prompt) => prompt.name),
       safety: {
         publicWrites: false,
-        liveDualWrites: readiness().writable,
-        writeTools: "operator_gated"
+        liveDualWrites: status.writable,
+        writeTools: "operator_gated",
+        networkMigration: status.network
       }
     });
     return;
@@ -137,11 +139,17 @@ export default async function mcp(request, response) {
 
 async function dispatch(method, params) {
   if (method === "initialize") {
+    const status = readiness();
     return {
       protocolVersion: "2025-06-18",
       serverInfo: { name: "dual-pharmchain-custody-demo", version: "0.3.0" },
       capabilities: { tools: {}, resources: {}, prompts: {} },
-      safety: { publicWrites: false, liveDualWrites: readiness().writable, writeTools: "operator_gated" }
+      safety: {
+        publicWrites: false,
+        liveDualWrites: status.writable,
+        writeTools: "operator_gated",
+        networkMigration: status.network
+      }
     };
   }
   if (method === "tools/list") return { tools };
@@ -243,6 +251,7 @@ function setHeaders(response) {
 }
 
 function buildManifest() {
+  const status = readiness();
   return {
     name: "dual-pharmchain-custody-demo",
     version: "0.3.0",
@@ -250,10 +259,11 @@ function buildManifest() {
     demo_path: "sandbox/pharmchain-custody-demo",
     concept: "PharmChain",
     scope: "hosted-live-dual-reviewer-demo",
-    liveDualWrites: readiness().writable,
+    liveDualWrites: status.writable,
     publicWrites: false,
     patientPiiStored: false,
-    operatorGateConfigured: readiness().operatorGateConfigured,
+    operatorGateConfigured: status.operatorGateConfigured,
+    networkMigration: status.network,
     tools: tools.map((tool) => tool.name),
     resources: resources.map((resource) => resource.uri),
     prompts: prompts.map((prompt) => prompt.name)
