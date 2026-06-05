@@ -8,6 +8,7 @@ import { evaluateHandoff, template } from "../src/pharmchain.mjs";
 
 const execFileAsync = promisify(execFile);
 const baseUrl = process.env.DEMO_BASE_URL || "http://127.0.0.1:4182";
+const expectedDualOrgId = process.env.EXPECTED_DUAL_ORG_ID || "69b935b4187e903f826bbe71";
 
 function assert(condition, message) {
   if (!condition) throw new Error(message);
@@ -160,7 +161,7 @@ assert(html.includes("Proof Rail"), "home page includes proof rail");
 
 const status = await request("/api/dual/status");
 assert(status.response.ok, "status endpoint returns 200");
-assert(status.body.orgId === "69b935b4187e903f826bbe71", "status reports IanTest org");
+assert(status.body.orgId === expectedDualOrgId, `status reports expected DUAL org ${expectedDualOrgId}`);
 assert(status.body.publicWrites === false, "status reports no public writes");
 assert(typeof status.body.liveDualWrites === "boolean", "status reports live write posture");
 assert(status.body.liveDualWrites === status.body.writable, "live writes match writable readiness");
